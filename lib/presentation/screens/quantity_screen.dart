@@ -91,18 +91,18 @@ class _QuantityScreenState extends State<QuantityScreen> {
       for (GeneratedLabel label in serverLabels) {
         tsplBuffer.writeln("CLS");
 
-        // Рядок 1: Накладна (X=10, Y=10)
+        // 1. TITLE (Зверху). Відступ Y=10.
+        // Використовуємо BLOCK для автопереносу та центрування (остання одиничка)
+        tsplBuffer.writeln('BLOCK 10,10,444,70,"4",0,1,1,1,"${label.title}"');
+
+        // 2. BARCODE (Посередині). Відступ Y=80.
+        // Текст під штрихкодом вимкнено (0), координата X=80 для центрування.
         tsplBuffer.writeln(
-          'TEXT 10,10,"4",0,1,1,"Накладна: ${widget.invoice.number}"',
+          'BARCODE 80,110,"EAN13",80,0,0,3,3,"${label.barcode}"',
         );
 
-        // Рядок 2: Додатковий текст із 1С (X=10, Y=50)
-        tsplBuffer.writeln('TEXT 10,50,"3",0,1,1,"${label.text}"');
-
-        // Рядок 3: Сам EAN-13 (Опустили Y на 90, щоб текст помістився)
-        tsplBuffer.writeln(
-          'BARCODE 80,90,"EAN13",80,0,0,3,3,"${label.barcode}"',
-        );
+        // 3. TEXT (Знизу). Відступ Y=170.
+        tsplBuffer.writeln('BLOCK 10,200,444,140,"4",0,1,1,1,"${label.text}"');
 
         tsplBuffer.writeln("PRINT 1");
       }
@@ -115,15 +115,7 @@ class _QuantityScreenState extends State<QuantityScreen> {
 
       if (mounted) {
         if (success) {
-          // Показуємо повідомлення про успіх
-          messenger.showSnackBar(
-            const SnackBar(
-              content: Text('Етикетки успішно надруковано!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-
-          // Закриваємо поточний екран і повертаємося на головний
+          // Миттєво закриваємо екран без зайвих повідомлень
           context.pop();
         } else {
           messenger.showSnackBar(
