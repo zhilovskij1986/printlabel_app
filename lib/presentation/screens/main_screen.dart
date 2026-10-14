@@ -21,7 +21,6 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   String _deviceName = '';
-  String _warehouseName = '';
   String _labelWidth = '58';
   String _labelHeight = '40';
   String _printerIp = '';
@@ -35,21 +34,20 @@ class _MainScreenState extends State<MainScreen> {
   /// Завантажуємо всі налаштування: назву ТЗД та розміри етикетки
   void _loadSettings() {
     final settingsService = context.read<SettingsService>();
+
     final name = settingsService.getDeviceName();
-    final warehouse = settingsService.getWarehouseName();
     final width = settingsService.getLabelWidth();
     final height = settingsService.getLabelHeight();
     final printerIp = settingsService.getPrinterIp();
 
     setState(() {
       _deviceName = name;
-      _warehouseName = warehouse;
       _labelWidth = width;
       _labelHeight = height;
       _printerIp = printerIp;
     });
 
-    if (name.isEmpty || warehouse.isEmpty) {
+    if (name.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _showSettingsDialog();
       });
@@ -59,9 +57,6 @@ class _MainScreenState extends State<MainScreen> {
   /// 1. Підменю: Налаштування ТЗД та розмірів етикетки
   Future<void> _showSettingsDialog() async {
     final nameController = TextEditingController(text: _deviceName);
-    final warehouseController = TextEditingController(
-      text: _warehouseName,
-    ); // НОВЕ ПОЛЕ
     final widthController = TextEditingController(text: _labelWidth);
     final heightController = TextEditingController(text: _labelHeight);
     final ipController = TextEditingController(text: _printerIp);
@@ -82,41 +77,23 @@ class _MainScreenState extends State<MainScreen> {
             ],
           ),
           content: SingleChildScrollView(
-            // Додано скрол, щоб клавіатура не перекривала поля
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Ідентифікатор термінала:',
+                  'Ідентифікатор термінала (Склад):',
                   style: TextStyle(color: Colors.black87),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: nameController,
                   decoration: InputDecoration(
-                    hintText: 'Наприклад: ТЗД-1',
+                    hintText: 'Наприклад: 9В',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // НОВЕ ПОЛЕ: Назва поточного складу
-                const Text(
-                  'Назва поточного складу:',
-                  style: TextStyle(color: Colors.black87),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: warehouseController,
-                  decoration: InputDecoration(
-                    hintText: 'Наприклад: Основний склад',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    prefixIcon: const Icon(Icons.warehouse),
+                    prefixIcon: const Icon(Icons.badge),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -203,13 +180,10 @@ class _MainScreenState extends State<MainScreen> {
               ),
               onPressed: () async {
                 final nameText = nameController.text.trim();
-                final warehouseText = warehouseController.text
-                    .trim(); // Зчитуємо склад
                 final widthText = widthController.text.trim();
                 final heightText = heightController.text.trim();
                 final ipText = ipController.text.trim();
 
-                // Базова валідація IP-адреси
                 final ipRegExp = RegExp(
                   r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$',
                 );
@@ -223,36 +197,26 @@ class _MainScreenState extends State<MainScreen> {
                   return;
                 }
 
-                // Перевіряємо, чи всі поля заповнені (включно зі складом)
                 if (nameText.isNotEmpty &&
-                    warehouseText.isNotEmpty &&
                     widthText.isNotEmpty &&
                     heightText.isNotEmpty) {
-                  // 1. ВИТЯГУЄМО ВСІ ЗАЛЕЖНОСТІ ВІД CONTEXT ДО AWAIT
                   final settingsService = context.read<SettingsService>();
                   final navigator = Navigator.of(dialogContext);
 
-                  // 2. ВИКОНУЄМО АСИНХРОННУ РОБОТУ
                   await settingsService.saveDeviceName(nameText);
-                  await settingsService.saveWarehouseName(
-                    warehouseText,
-                  ); // Зберігаємо склад
                   await settingsService.saveLabelWidth(widthText);
                   await settingsService.saveLabelHeight(heightText);
                   await settingsService.savePrinterIp(ipText);
 
-                  // 3. ПЕРЕВІРЯЄМО MOUNTED ПЕРЕД ОНОВЛЕННЯМ UI
                   if (!mounted) return;
 
                   setState(() {
                     _deviceName = nameText;
-                    _warehouseName = warehouseText; // Оновлюємо стейт
                     _labelWidth = widthText;
                     _labelHeight = heightText;
                     _printerIp = ipText;
                   });
 
-                  // 4. ЗАКРИВАЄМО ДІАЛОГ
                   navigator.pop();
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(

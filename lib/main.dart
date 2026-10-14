@@ -10,26 +10,21 @@ import 'data/repositories/invoice_repository.dart';
 import 'presentation/bloc/scanner/scanner_bloc.dart';
 
 void main() async {
-  // 1. Обов'язково першим рядком перед будь-якою роботою плагінів
   WidgetsFlutterBinding.ensureInitialized();
-
-  // 2. ОДИН РАЗ ініціалізуємо SharedPreferences для всього додатка
   final prefs = await SharedPreferences.getInstance();
-
-  // 3. Створюємо сервіс налаштувань із готовим кешем
   final settingsService = SettingsService(prefs);
 
-  // 4. Безпечно дістаємо назву складу для BLoC
-  String warehouseFromSettings = settingsService.getWarehouseName();
-  if (warehouseFromSettings.isEmpty) {
-    warehouseFromSettings = "Основний склад"; // Дефолтне значення
+  // Отримуємо ідентифікатор пристрою (numtab)
+  String numTabFromSettings = settingsService.getDeviceName();
+  if (numTabFromSettings.isEmpty) {
+    numTabFromSettings =
+        "Основний склад"; // Дефолтне значення, якщо ще не налаштовано
   }
 
-  // 5. Запуск застосунку з передачею готових даних
   runApp(
     MyApp(
       settingsService: settingsService,
-      currentWarehouseName: warehouseFromSettings,
+      currentWarehouseName: numTabFromSettings, // Передаємо його в BLoC
     ),
   );
 }

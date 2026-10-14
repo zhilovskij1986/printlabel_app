@@ -108,6 +108,7 @@ class _QuantityScreenState extends State<QuantityScreen> {
       }
 
       // 3. Відправляємо на принтер
+      // 3. Відправляємо на принтер
       final success = await printerService.printLabels(
         ipAddress: ipAddress,
         tsplCommand: tsplBuffer.toString(),
@@ -115,16 +116,16 @@ class _QuantityScreenState extends State<QuantityScreen> {
 
       if (mounted) {
         if (success) {
-          setState(() {
-            _quantity = '0';
-            _isFirstTap = true;
-          });
+          // Показуємо повідомлення про успіх
           messenger.showSnackBar(
             const SnackBar(
               content: Text('Етикетки успішно надруковано!'),
               backgroundColor: Colors.green,
             ),
           );
+
+          // Закриваємо поточний екран і повертаємося на головний
+          context.pop();
         } else {
           messenger.showSnackBar(
             const SnackBar(
