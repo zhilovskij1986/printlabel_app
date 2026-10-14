@@ -77,7 +77,7 @@ class _QuantityScreenState extends State<QuantityScreen> {
           .generateBarcodesOnServer(widget.invoice.scannedBarcode, qty, numTab);
 
       if (serverLabels.isEmpty) {
-        throw Exception('1С не повернула дані для друку');
+        throw Exception('Сервер не повернув дані для друку');
       }
 
       // 2. Формуємо один загальний пакет TSPL для принтера
@@ -101,13 +101,12 @@ class _QuantityScreenState extends State<QuantityScreen> {
 
         // Рядок 3: Сам EAN-13 (Опустили Y на 90, щоб текст помістився)
         tsplBuffer.writeln(
-          'BARCODE 10,90,"EAN13",80,1,0,2,2,"${label.barcode}"',
+          'BARCODE 80,90,"EAN13",80,0,0,3,3,"${label.barcode}"',
         );
 
         tsplBuffer.writeln("PRINT 1");
       }
 
-      // 3. Відправляємо на принтер
       // 3. Відправляємо на принтер
       final success = await printerService.printLabels(
         ipAddress: ipAddress,
@@ -147,7 +146,7 @@ class _QuantityScreenState extends State<QuantityScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[200], // Світлий фон для контрасту
+      backgroundColor: Colors.grey[200],
       appBar: AppBar(
         title: const Text('Введення кількості'),
         centerTitle: true,

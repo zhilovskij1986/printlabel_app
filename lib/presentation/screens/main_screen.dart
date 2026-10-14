@@ -389,8 +389,8 @@ GAP 2 mm, 0 mm
 DIRECTION 1
 CODEPAGE UTF-8
 CLS
-TEXT 10,10,"4",0,1,1,"$code"
-TEXT 10,50,"3",0,1,1,"$name"
+TEXT 100,60,"4",0,2,2,"$code"
+BLOCK 10,140,444,160,"3",0,2,2,1,"$name"
 PRINT 1
 """;
 
@@ -517,7 +517,7 @@ PRINT 1
             // Перше підменю: назва девайсу
             ListTile(
               leading: const Icon(Icons.badge, color: Colors.blueAccent),
-              title: const Text('Ідентифікація ТЗД'),
+              title: const Text('Ідентифікація девайса'),
               subtitle: Text(
                 _deviceName.isNotEmpty ? _deviceName : 'Вказати назву',
               ),
