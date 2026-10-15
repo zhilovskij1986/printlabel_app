@@ -4,6 +4,8 @@ import 'package:flutter_barcode_listener/flutter_barcode_listener.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/services/printer_service.dart';
+import '../../core/services/update_service.dart';
+import '../../data/repositories/api/api_client.dart';
 import '../bloc/scanner/scanner_bloc.dart';
 import '../bloc/scanner/scanner_event.dart';
 import '../bloc/scanner/scanner_state.dart';
@@ -29,6 +31,7 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _loadSettings();
+    _checkAppUpdate();
   }
 
   /// Завантажуємо всі налаштування: назву ТЗД та розміри етикетки
@@ -457,6 +460,60 @@ PRINT 1
       context.read<ScannerBloc>().add(ConfirmContinue(invoice));
     } else {
       context.read<ScannerBloc>().add(ResetScanner());
+    }
+  }
+
+  Future<void> _checkAppUpdate() async {
+    // Якщо сервіс ще не зареєстрований у Provider, створюємо його напряму
+    final apiClient = context.read<ApiClient>();
+
+    // Створюємо сервіс, передаючи йому клієнт
+    final updateService = UpdateService(apiClient: apiClient);
+
+    // Перевіряємо у фоні (замініть "android" на те значення type, яке очікує ваша 1С)
+    final updateInfo = await updateService.checkForUpdates(type: "android");
+
+    // Якщо є оновлення і екран досі активний
+    if (updateInfo != null && mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false, // Забороняємо закривати кліком поза вікном
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Доступне оновлення'),
+          content: Text(
+            'Знайдено нову версію: ${updateInfo['version']}. Оновити зараз?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Пізніше'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              onPressed: () {
+                Navigator.pop(dialogContext); // Закриваємо вікно діалогу
+
+                // Показуємо повідомлення, що процес пішов
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Завантаження оновлення...'),
+                    backgroundColor: Colors.blue,
+                  ),
+                );
+
+                // Починаємо завантаження
+                updateService.downloadAndInstall(updateInfo['url'], (progress) {
+                  // Використовуємо debugPrint замість print
+                  debugPrint(
+                    'Завантажено: ${(progress * 100).toStringAsFixed(0)}%',
+                  );
+                });
+              },
+              child: const Text('Оновити'),
+            ),
+          ],
+        ),
+      );
     }
   }
 
