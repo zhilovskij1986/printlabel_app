@@ -1,5 +1,5 @@
 class Invoice {
-  final String scannedBarcode; // <-- НОВЕ ПОЛЕ
+  final String scannedBarcode;
   final String number;
   final String warehouseCode;
   final List<String> warehouseNames;
@@ -7,7 +7,7 @@ class Invoice {
   final String loadingPlaceBarcode;
 
   Invoice({
-    required this.scannedBarcode, // <-- ДОДАНО
+    required this.scannedBarcode,
     required this.number,
     required this.warehouseCode,
     required this.warehouseNames,
@@ -18,7 +18,7 @@ class Invoice {
   // Оновлюємо fromJson: тепер він приймає ще й штрихкод
   factory Invoice.fromJson(Map<String, dynamic> json, String barcode) {
     return Invoice(
-      scannedBarcode: barcode, // <-- ЗБЕРІГАЄМО ШТРИХКОД
+      scannedBarcode: barcode,
       number: json['Номер'] ?? '',
       warehouseCode: json['СкладКод'] ?? '',
       warehouseNames:

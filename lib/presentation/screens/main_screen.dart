@@ -242,6 +242,8 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _showCustomLabelPrintDialog() async {
     final codeController = TextEditingController();
     final nameController = TextEditingController();
+    // Додаємо контролер для кількості з дефолтним значенням 1
+    final copiesController = TextEditingController(text: '');
 
     await showDialog(
       context: context,
@@ -260,12 +262,7 @@ class _MainScreenState extends State<MainScreen> {
               ),
             ],
           ),
-          // 1. ДОДАЄМО PADDING СЮДИ
           content: SingleChildScrollView(
-            // Цей рядок "відштовхує" вміст знизу на висоту клавіатури
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(dialogContext).viewInsets.bottom,
-            ),
             child: SizedBox(
               width: 400,
               child: Column(
@@ -293,6 +290,23 @@ class _MainScreenState extends State<MainScreen> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       prefixIcon: const Icon(Icons.inventory_2_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // НОВЕ ПОЛЕ ДЛЯ КІЛЬКОСТІ КОПІЙ
+                  TextField(
+                    controller: copiesController,
+                    keyboardType:
+                        TextInputType.number, // Відкриває цифрову клавіатуру
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                    ], // Тільки цифри
+                    decoration: InputDecoration(
+                      labelText: 'Кількість етикеток',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      prefixIcon: const Icon(Icons.file_copy_outlined),
                     ),
                   ),
                 ],
@@ -330,6 +344,10 @@ class _MainScreenState extends State<MainScreen> {
               onPressed: () {
                 final code = codeController.text.trim();
                 final name = nameController.text.trim();
+                final copiesText = copiesController.text.trim();
+
+                // Перетворюємо введений текст на число. Якщо щось не так (порожньо) — друкуємо 1
+                final int copies = int.tryParse(copiesText) ?? 0;
 
                 if (code.isEmpty && name.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -341,10 +359,20 @@ class _MainScreenState extends State<MainScreen> {
                   return;
                 }
 
+                if (copies <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Кількість має бути більше нуля'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                  return;
+                }
+
                 Navigator.of(dialogContext).pop();
 
-                // Виклик окремого макета друку на TSC TE210
-                _printCustomLabel(code: code, name: name);
+                // Передаємо параметр copies у метод друку
+                _printCustomLabel(code: code, name: name, copies: copies);
               },
             ),
           ],
@@ -357,22 +385,17 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _printCustomLabel({
     required String code,
     required String name,
+    required int copies, // Додано новий обов'язковий параметр
   }) async {
-    // 1. ВИТЯГУЄМО ВСЕ З CONTEXT ДО ПЕРШОГО AWAIT
     final settingsService = context.read<SettingsService>();
-    final printerService = context
-        .read<PrinterService>(); // Дістаємо сервіс принтера заздалегідь
-    final messenger = ScaffoldMessenger.of(
-      context,
-    ); // Кешуємо месенджер для SnackBar
+    final printerService = context.read<PrinterService>();
+    final messenger = ScaffoldMessenger.of(context);
 
-    // 2. АСИНХРОННІ ВИКЛИКИ
     final width = settingsService.getLabelWidth();
     final height = settingsService.getLabelHeight();
     final ipAddress = settingsService.getPrinterIp();
 
     if (ipAddress.isEmpty) {
-      // 3. ВИКОРИСТОВУЄМО КЕШОВАНИЙ messenger
       messenger.showSnackBar(
         const SnackBar(
           content: Text('Вкажіть IP-адресу принтера в налаштуваннях!'),
@@ -382,14 +405,7 @@ class _MainScreenState extends State<MainScreen> {
       return;
     }
 
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text('Відправка на $ipAddress...'),
-        duration: const Duration(seconds: 1),
-      ),
-    );
-
-    // Формуємо макет тільки з текстом (без штрихкоду)
+    // Змінено PRINT 1 на PRINT $copies
     final String tsplCommand =
         """
 SIZE $width mm, $height mm
@@ -398,25 +414,17 @@ DIRECTION 1
 CODEPAGE UTF-8
 CLS
 TEXT 100,60,"4",0,2,2,"$code"
-BLOCK 10,140,444,160,"3",0,2,2,1,"$name"
-PRINT 1
+BLOCK 10,140,444,160,"3",0,2,2,1,2,1,"$name"
+PRINT $copies 
 """;
 
-    // Використовуємо кешований printerService
     final success = await printerService.printLabels(
       ipAddress: ipAddress,
       tsplCommand: tsplCommand,
     );
 
     if (mounted) {
-      if (success) {
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Етикетку успішно надруковано!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
+      if (!success) {
         messenger.showSnackBar(
           const SnackBar(
             content: Text('Помилка з\'єднання з принтером!'),
@@ -442,17 +450,48 @@ PRINT 1
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           content: Text(question, style: const TextStyle(fontSize: 18)),
+
+          actionsAlignment: MainAxisAlignment.spaceEvenly,
+          actionsPadding: const EdgeInsets.only(
+            bottom: 16,
+            left: 16,
+            right: 16,
+          ),
           actions: [
-            TextButton(
+            // Велика кнопка НІ
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(130, 60),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               onPressed: () => Navigator.of(dialogContext).pop(false),
               child: const Text(
                 'НІ',
-                style: TextStyle(fontSize: 16, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey,
+                ),
               ),
             ),
+
+            // Велика кнопка ТАК
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(130, 60),
+                backgroundColor: Colors.blueAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('ТАК', style: TextStyle(fontSize: 16)),
+              child: const Text(
+                'ТАК',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         );
@@ -699,7 +738,7 @@ class IpAddressInputFormatter extends TextInputFormatter {
 
     String text = newValue.text;
     // Залишаємо виключно цифри та крапки
-    text = text.replaceAll(RegExp(r'[^0-9\.]'), '');
+    text = text.replaceAll(RegExp(r'[^0-9.]'), '');
 
     // Розбиваємо рядок на блоки (октети)
     List<String> blocks = text.split('.');
