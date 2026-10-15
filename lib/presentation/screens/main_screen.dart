@@ -260,7 +260,12 @@ class _MainScreenState extends State<MainScreen> {
               ),
             ],
           ),
+          // 1. ДОДАЄМО PADDING СЮДИ
           content: SingleChildScrollView(
+            // Цей рядок "відштовхує" вміст знизу на висоту клавіатури
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(dialogContext).viewInsets.bottom,
+            ),
             child: SizedBox(
               width: 400,
               child: Column(

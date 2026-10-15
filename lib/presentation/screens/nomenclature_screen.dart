@@ -68,6 +68,7 @@ class _NomenclatureScreenState extends State<NomenclatureScreen> {
   }
 
   /// Відкриття діалогу з гортанням великих фотографій
+  /// Відкриття діалогу з гортанням великих фотографій на весь екран
   void _showImageCarouselDialog(List<NomenclatureItem> productPhotos) {
     showDialog(
       context: context,
@@ -80,44 +81,48 @@ class _NomenclatureScreenState extends State<NomenclatureScreen> {
             final imageBytes = currentItem.imageBytes;
             final hasImage = imageBytes != null && imageBytes.isNotEmpty;
 
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: Text(
-                currentItem.nameItem,
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              // 1. ЗАГОРТАЄМО КОЛОНКУ В SingleChildScrollView
-              content: SingleChildScrollView(
+            return Dialog.fullscreen(
+              backgroundColor: Colors.white,
+              child: SafeArea(
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'Код: ${_formatCode(currentItem.codeItem)}',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                          color: Colors.blue.shade800,
-                        ),
+                    // 1. ВЕРХНЯ ЧАСТИНА: Назва та Код товару
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          Text(
+                            currentItem.nameItem,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'Код: ${_formatCode(currentItem.codeItem)}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                color: Colors.blue.shade800,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 16),
 
-                    // Кнопки перемикання фото
+                    // 2. КНОПКИ ПЕРЕМИКАННЯ ФОТО (якщо їх більше однієї)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -151,56 +156,66 @@ class _NomenclatureScreenState extends State<NomenclatureScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
 
-                    // Велике зображення
-                    Container(
-                      width: 400,
-                      // 2. ЗАМІСТЬ height: 400 РОБИМО АДАПТИВНУ ВИСОТУ
-                      constraints: BoxConstraints(
-                        // Картинка займатиме максимум 45% висоти екрана, але не більше 400 пікселів
-                        maxHeight:
-                            MediaQuery.of(context).size.height * 0.45 > 400
-                            ? 400
-                            : MediaQuery.of(context).size.height * 0.45,
-                      ),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(12),
-                        color: Colors.white,
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: hasImage
-                            ? Image.memory(imageBytes, fit: BoxFit.contain)
-                            : const Center(
-                                child: Icon(
-                                  Icons.error,
-                                  color: Colors.redAccent,
-                                  size: 150,
+                    // 3. ЦЕНТРАЛЬНА ЧАСТИНА: Фото на весь вільний простір
+                    Expanded(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(
+                          milliseconds: 300,
+                        ), // Тривалість анімації
+                        transitionBuilder:
+                            (Widget child, Animation<double> animation) {
+                              // Плавне перемикання через прозорість (Fade)
+                              return FadeTransition(
+                                opacity: animation,
+                                child: child,
+                              );
+                            },
+                        child: InteractiveViewer(
+                          // ВАЖЛИВО: Цей ключ каже Flutter, що картинка змінилася
+                          // і потрібно запустити анімацію переходу
+                          key: ValueKey<int>(currentIndex),
+                          minScale: 1.0,
+                          maxScale: 4.0,
+                          child: hasImage
+                              ? Image.memory(
+                                  imageBytes,
+                                  fit: BoxFit.contain,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                )
+                              : const Center(
+                                  child: Icon(
+                                    Icons.image_not_supported,
+                                    color: Colors.grey,
+                                    size: 100,
+                                  ),
                                 ),
-                              ),
+                        ),
+                      ),
+                    ),
+
+                    // 4. НИЖНЯ ЧАСТИНА: Кнопка "Закрити"
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(200, 50),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        child: const Text(
+                          'Закрити',
+                          style: TextStyle(fontSize: 18),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-              actionsAlignment: MainAxisAlignment.center,
-              actions: [
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 12,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Закрити', style: TextStyle(fontSize: 18)),
-                ),
-              ],
             );
           },
         );
@@ -301,27 +316,30 @@ class _NomenclatureScreenState extends State<NomenclatureScreen> {
 
                       return Card(
                         elevation: 2,
+                        // 1. ЗМЕНШЕНО ВІДСТУП МІЖ КАРТКАМИ (було vertical: 8)
                         margin: const EdgeInsets.symmetric(
                           horizontal: 16,
-                          vertical: 8,
+                          vertical: 4,
                         ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                            16,
-                          ), // Заокруглені кути
+                          borderRadius: BorderRadius.circular(16),
                         ),
                         child: InkWell(
-                          // Додає красивий ефект хвилі при натисканні
                           borderRadius: BorderRadius.circular(16),
                           onTap: () => _showImageCarouselDialog(photos),
                           child: Padding(
-                            padding: const EdgeInsets.all(12.0),
+                            // 2. ЗМЕНШЕНО ВНУТРІШНІЙ ВІДСТУП ЗВЕРХУ І ЗНИЗУ (було all: 12)
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12.0,
+                              vertical: 8.0,
+                            ),
                             child: Row(
                               children: [
                                 // Мініатюра (Прев'ю фотографії)
                                 Container(
-                                  width: 80,
-                                  height: 80,
+                                  // 3. ЗМЕНШЕНО РОЗМІР КАРТИНКИ (було 80х80)
+                                  width: 56,
+                                  height: 56,
                                   decoration: BoxDecoration(
                                     color: Colors.grey.shade100,
                                     borderRadius: BorderRadius.circular(12),
@@ -339,7 +357,8 @@ class _NomenclatureScreenState extends State<NomenclatureScreen> {
                                         : Icon(
                                             Icons.image_not_supported,
                                             color: Colors.grey.shade400,
-                                            size: 36,
+                                            // Зменшено розмір іконки-заглушки
+                                            size: 28,
                                           ),
                                   ),
                                 ),
@@ -350,23 +369,28 @@ class _NomenclatureScreenState extends State<NomenclatureScreen> {
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
+                                    // Щоб текст займав мінімум місця по висоті
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
                                         name,
                                         style: const TextStyle(
-                                          fontSize: 18,
+                                          fontSize: 16, // Трохи зменшено шрифт назви (було 18)
                                           fontWeight: FontWeight.bold,
                                           color: Colors.black87,
                                         ),
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                       ),
-                                      const SizedBox(height: 8),
+                                      // 4. ЗМЕНШЕНО ПРОМІЖОК МІЖ НАЗВОЮ ТА КОДОМ (було 8)
+                                      const SizedBox(height: 4),
+
                                       // Стилізована плашка для коду
                                       Container(
                                         padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 4,
+                                          horizontal: 8,
+                                          vertical:
+                                              2, // Зменшено відступи у плашці
                                         ),
                                         decoration: BoxDecoration(
                                           color: Colors.blue.shade50,
@@ -377,7 +401,8 @@ class _NomenclatureScreenState extends State<NomenclatureScreen> {
                                         child: Text(
                                           'Код: ${_formatCode(code)}',
                                           style: TextStyle(
-                                            fontSize: 15,
+                                            fontSize:
+                                                14, // Трохи зменшено шрифт коду
                                             fontWeight: FontWeight.w600,
                                             color: Colors.blue.shade800,
                                           ),
@@ -393,7 +418,7 @@ class _NomenclatureScreenState extends State<NomenclatureScreen> {
                                   child: Icon(
                                     Icons.chevron_right_rounded,
                                     color: Colors.grey.shade400,
-                                    size: 36,
+                                    size: 32, // Трохи зменшено іконку
                                   ),
                                 ),
                               ],
