@@ -4,13 +4,13 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiClient {
-  static const String _host = '192.168.3.144';
-  static const String _publication = 'begliy_test';
-  static const int _port = 80;
+  // static const String _host = '192.168.3.144';
+  // static const String _publication = 'begliy_test';
+  // static const int _port = 80;
 
-  // static const String _host = '192.168.3.8';
-  // static const String _publication = 'BegAuto';
-  //static const int _port = 8090;
+  static const String _host = '192.168.3.8';
+  static const String _publication = 'BegAuto';
+  static const int _port = 8090;
 
   static const String _serviceName = 'apiv2';
   static const String _login = 'tradev2';
