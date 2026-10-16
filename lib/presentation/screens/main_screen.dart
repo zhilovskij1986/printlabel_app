@@ -405,7 +405,8 @@ class _MainScreenState extends State<MainScreen> {
       return;
     }
 
-    // Змінено PRINT 1 на PRINT $copies
+    final String safeName = PrinterService.sanitizeForTspl(name);
+    final String safeCode = PrinterService.sanitizeForTspl(code);
     final String tsplCommand =
         """
 SIZE $width mm, $height mm
@@ -413,8 +414,8 @@ GAP 2 mm, 0 mm
 DIRECTION 1
 CODEPAGE UTF-8
 CLS
-TEXT 100,60,"4",0,2,2,"$code"
-BLOCK 10,140,444,160,"3",0,2,2,1,2,1,"$name"
+TEXT 100,60,"4",0,2,2,"$safeCode"
+BLOCK 10,140,444,160,"3",0,2,2,1,2,1,"$safeName"
 PRINT $copies 
 """;
 

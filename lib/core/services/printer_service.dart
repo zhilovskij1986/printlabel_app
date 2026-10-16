@@ -4,6 +4,22 @@ import 'dart:convert';
 import 'package:flutter/cupertino.dart';
 
 class PrinterService {
+  /// Очищає текст від небезпечних символів для TSPL команд,
+  /// запобігаючи збоям при друці через спецсимволи або переноси.
+  static String sanitizeForTspl(String input) {
+    if (input.isEmpty) return input;
+
+    return input
+        .replaceAll('"', "'") // Замінюємо подвійні лапки на одинарні
+        .replaceAll('\\', '') // Видаляємо зворотні слеші
+        .replaceAll('\n', ' ') // Прибираємо переноси рядків
+        .replaceAll('\r', ' ') // Прибираємо повернення каретки
+        .replaceAll(
+          RegExp(r'[\x00-\x1F]'),
+          '',
+        ); // Видаляємо невидимі керуючі символи
+  }
+
   /// Відправляє TSPL-команду на принтер по IP-адресі
   Future<bool> printLabels({
     required String ipAddress,

@@ -91,19 +91,15 @@ class _QuantityScreenState extends State<QuantityScreen> {
       for (GeneratedLabel label in serverLabels) {
         tsplBuffer.writeln("CLS");
 
-        // 1. TITLE (Зверху). Відступ Y=10.
-        // Використовуємо BLOCK для автопереносу та центрування (остання одиничка)
-        tsplBuffer.writeln('BLOCK 10,10,444,70,"4",0,1,1,1,"${label.title}"');
+        // Викликаємо через PrinterService
+        final safeTitle = PrinterService.sanitizeForTspl(label.title);
+        final safeText = PrinterService.sanitizeForTspl(label.text);
 
-        // 2. BARCODE (Посередині). Відступ Y=80.
-        // Текст під штрихкодом вимкнено (0), координата X=80 для центрування.
+        tsplBuffer.writeln('BLOCK 10,10,444,70,"4",0,1,1,1,"$safeTitle"');
         tsplBuffer.writeln(
           'BARCODE 80,110,"EAN13",80,0,0,3,3,"${label.barcode}"',
         );
-
-        // 3. TEXT (Знизу). Відступ Y=170.
-        tsplBuffer.writeln('BLOCK 10,200,444,140,"4",0,1,1,1,"${label.text}"');
-
+        tsplBuffer.writeln('BLOCK 10,200,444,140,"4",0,1,1,1,"$safeText"');
         tsplBuffer.writeln("PRINT 1");
       }
 
