@@ -61,7 +61,6 @@ class _QuantityScreenState extends State<QuantityScreen> {
     final numTab = settingsService.getDeviceName();
 
     if (ipAddress.isEmpty) {
-      // 3. ВИКОРИСТОВУЄМО ЗБЕРЕЖЕНИЙ messenger ЗАМІСТЬ ScaffoldMessenger.of(context)
       messenger.showSnackBar(
         const SnackBar(
           content: Text('Вкажіть IP-адресу принтера!'),
@@ -72,7 +71,6 @@ class _QuantityScreenState extends State<QuantityScreen> {
     }
 
     try {
-      // ЗМІНЕНО: Тепер ми чекаємо масив об'єктів GeneratedLabel
       final List<GeneratedLabel> serverLabels = await repository
           .generateBarcodesOnServer(widget.invoice.scannedBarcode, qty, numTab);
 
@@ -80,30 +78,33 @@ class _QuantityScreenState extends State<QuantityScreen> {
         throw Exception('Сервер не повернув дані для друку');
       }
 
-      // 2. Формуємо один загальний пакет TSPL для принтера
       StringBuffer tsplBuffer = StringBuffer();
       tsplBuffer.writeln("SIZE $width mm, $height mm");
       tsplBuffer.writeln("GAP 2 mm, 0 mm");
       tsplBuffer.writeln("DIRECTION 1");
       tsplBuffer.writeln("CODEPAGE UTF-8");
 
-      // ЗМІНЕНО: Проходимось по об'єктах GeneratedLabel
       for (GeneratedLabel label in serverLabels) {
         tsplBuffer.writeln("CLS");
 
-        // Викликаємо через PrinterService
+        // Очищення тексту через статичний метод PrinterService
         final safeTitle = PrinterService.sanitizeForTspl(label.title);
         final safeText = PrinterService.sanitizeForTspl(label.text);
 
-        tsplBuffer.writeln('BLOCK 10,10,444,70,"4",0,1,1,1,"$safeTitle"');
+        // 1. TITLE (Зверху)
+        tsplBuffer.writeln('BLOCK 0,10,464,140,"4",0,1,1,10,1,"$safeTitle"');
+
+        // 2. BARCODE (Посередині)
         tsplBuffer.writeln(
-          'BARCODE 80,110,"EAN13",80,0,0,3,3,"${label.barcode}"',
+          'BARCODE 80,150,"EAN13",70,0,0,3,3,"${label.barcode}"',
         );
-        tsplBuffer.writeln('BLOCK 10,200,444,140,"4",0,1,1,1,"$safeText"');
+
+        // 3. TEXT (Знизу)
+        tsplBuffer.writeln('BLOCK 10,230,444,70,"3",0,1,1,10,1,"$safeText"');
+
         tsplBuffer.writeln("PRINT 1");
       }
 
-      // 3. Відправляємо на принтер
       final success = await printerService.printLabels(
         ipAddress: ipAddress,
         tsplCommand: tsplBuffer.toString(),
@@ -111,7 +112,6 @@ class _QuantityScreenState extends State<QuantityScreen> {
 
       if (mounted) {
         if (success) {
-          // Миттєво закриваємо екран без зайвих повідомлень
           context.pop();
         } else {
           messenger.showSnackBar(
