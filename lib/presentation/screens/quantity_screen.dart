@@ -79,6 +79,8 @@ class _QuantityScreenState extends State<QuantityScreen> {
       }
 
       StringBuffer tsplBuffer = StringBuffer();
+      tsplBuffer.writeln("");
+      tsplBuffer.writeln("");
       tsplBuffer.writeln("SIZE $width mm, $height mm");
       tsplBuffer.writeln("GAP 2 mm, 0 mm");
       tsplBuffer.writeln("DIRECTION 1");

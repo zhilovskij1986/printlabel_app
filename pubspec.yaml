@@ -21,6 +21,7 @@ dependencies:
   package_info_plus: ^10.2.2
   path_provider: ^2.1.6
   open_filex: ^4.7.0
+  wakelock_plus: ^1.8.1
 
 dev_dependencies:
   flutter_test:

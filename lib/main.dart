@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // Додайте цей імпорт
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'core/router/app_router.dart';
 import 'core/services/printer_service.dart';
@@ -11,6 +12,10 @@ import 'presentation/bloc/scanner/scanner_bloc.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 2. Активуємо постійну підсвітку та безперебійний Wi-Fi
+  WakelockPlus.enable();
+
   final prefs = await SharedPreferences.getInstance();
   final settingsService = SettingsService(prefs);
 

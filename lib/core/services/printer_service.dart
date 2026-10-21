@@ -26,30 +26,38 @@ class PrinterService {
     required String tsplCommand,
   }) async {
     const int port = 9100; // Стандартний порт для RAW-друку
+    Socket? socket; // Оголошуємо змінну поза блоком try
 
     try {
-      // Встановлюємо з'єднання з таймаутом 3 секунди, щоб додаток не "зависав",
-      // якщо принтер вимкнено або IP неправильний
-      final socket = await Socket.connect(
+      // Встановлюємо з'єднання
+      socket = await Socket.connect(
         ipAddress,
         port,
         timeout: const Duration(seconds: 3),
       );
 
-      // Відправляємо сформовану команду на принтер.
-      // Кодуємо в UTF-8. (Якщо замість кирилиці будуть "ієрогліфи",
-      // ми згодом підключимо пакет charset_converter для Windows-1251).
+      // Відправляємо сформовану команду на принтер
       socket.add(utf8.encode(tsplCommand));
 
-      // Чекаємо, поки дані гарантовано будуть відправлені
+      // Чекаємо, поки дані гарантовано будуть виштовхнуті в мережу
       await socket.flush();
-      // Закриваємо з'єднання
-      await socket.close();
 
       return true; // Друк успішний
     } catch (e) {
       debugPrint('Помилка друку: $e');
       return false; // Помилка підключення
+    } finally {
+      // Цей блок виконається ЗАВЖДИ, навіть якщо була помилка.
+      // Це гарантує, що ми ніколи не залишимо "фантомних" з'єднань.
+      if (socket != null) {
+        try {
+          await socket
+              .close(); // Коректно просимо закрити з'єднання (FIN-пакет)
+          socket.destroy(); // Жорстко вбиваємо сокет і звільняємо пам'ять
+        } catch (e) {
+          debugPrint('Помилка при закритті сокета: $e');
+        }
+      }
     }
   }
 }
