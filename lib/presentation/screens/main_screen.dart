@@ -244,7 +244,6 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _showCustomLabelPrintDialog() async {
     final codeController = TextEditingController();
     final nameController = TextEditingController();
-    // Додаємо контролер для кількості з дефолтним значенням 1
     final copiesController = TextEditingController(text: '');
 
     await showDialog(
@@ -295,14 +294,10 @@ class _MainScreenState extends State<MainScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // НОВЕ ПОЛЕ ДЛЯ КІЛЬКОСТІ КОПІЙ
                   TextField(
                     controller: copiesController,
-                    keyboardType:
-                        TextInputType.number, // Відкриває цифрову клавіатуру
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                    ], // Тільки цифри
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: InputDecoration(
                       labelText: 'Кількість етикеток',
                       border: OutlineInputBorder(
@@ -348,7 +343,6 @@ class _MainScreenState extends State<MainScreen> {
                 final name = nameController.text.trim();
                 final copiesText = copiesController.text.trim();
 
-                // Перетворюємо введений текст на число. Якщо щось не так (порожньо) — друкуємо 1
                 final int copies = int.tryParse(copiesText) ?? 0;
 
                 if (code.isEmpty && name.isEmpty) {
@@ -372,8 +366,6 @@ class _MainScreenState extends State<MainScreen> {
                 }
 
                 Navigator.of(dialogContext).pop();
-
-                // Передаємо параметр copies у метод друку
                 _printCustomLabel(code: code, name: name, copies: copies);
               },
             ),
@@ -410,8 +402,6 @@ class _MainScreenState extends State<MainScreen> {
     final String safeName = PrinterService.sanitizeForTspl(name);
     final String safeCode = PrinterService.sanitizeForTspl(code);
 
-    // Тут ми поки що залишаємо текстовий формат команд, бо це окремий друк.
-    // Якщо захочете зробити жирним і тут, треба буде адаптувати під List<int>.
     final String tsplCommand =
         """
 SIZE $width mm, $height mm
@@ -424,7 +414,6 @@ BLOCK 10,140,444,160,"3",0,2,2,1,2,1,"$safeName"
 PRINT $copies 
 """;
 
-    // Відправляємо масив байтів (utf8.encode працюватиме, бо ми додали імпорт зверху)
     final success = await printerService.printLabels(
       ipAddress: ipAddress,
       payload: utf8.encode(tsplCommand),
@@ -457,7 +446,6 @@ PRINT $copies
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           content: Text(question, style: const TextStyle(fontSize: 18)),
-
           actionsAlignment: MainAxisAlignment.spaceEvenly,
           actionsPadding: const EdgeInsets.only(
             bottom: 16,
@@ -465,7 +453,6 @@ PRINT $copies
             right: 16,
           ),
           actions: [
-            // Велика кнопка НІ
             OutlinedButton(
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(130, 60),
@@ -483,8 +470,6 @@ PRINT $copies
                 ),
               ),
             ),
-
-            // Велика кнопка ТАК
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(130, 60),
@@ -653,8 +638,9 @@ PRINT $copies
           } else if (state is ScannerConfirmationRequired) {
             _showConfirmationDialog(context, state.questionText, state.invoice);
           } else if (state is ScannerSuccess) {
+            // ВИПРАВЛЕНО: Просто відкриваємо екран. Скидання (Reset) відбудеться
+            // при закритті цього екрана через його метод dispose().
             context.push('/quantity', extra: state.invoice);
-            context.read<ScannerBloc>().add(ResetScanner());
           }
         },
         builder: (context, state) {
@@ -753,7 +739,7 @@ class IpAddressInputFormatter extends TextInputFormatter {
 
       formatted += block;
 
-      // ВИПРАВЛЕНО: додано знак мінуса
+      // ВИПРАВЛЕНО: синтаксична помилка
       if (i < blocks.length - 1) {
         formatted += '.';
       } else if (block.length == 3 && i < 3) {

@@ -23,7 +23,7 @@ class ScannerBloc extends Bloc<ScannerEvent, ScannerState> {
     BarcodeScanned event,
     Emitter<ScannerState> emit,
   ) async {
-    if (state is! ScannerInitial) return;
+    if (state is ScannerLoading) return;
     emit(ScannerLoading());
 
     try {

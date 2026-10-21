@@ -11,6 +11,7 @@ import '../../core/services/settings_service.dart';
 import '../../data/repositories/invoice_repository.dart';
 import '../bloc/scanner/scanner_bloc.dart';
 import '../bloc/scanner/scanner_event.dart';
+import '../bloc/scanner/scanner_state.dart';
 
 class QuantityScreen extends StatefulWidget {
   final Invoice invoice;
@@ -37,9 +38,10 @@ class _QuantityScreenState extends State<QuantityScreen> {
 
   @override
   void dispose() {
-    // 3. ГАРАНТОВАНО очищаємо сканер при будь-якому закритті форми
-    // (натискання кнопки "Назад", свайп, або після успішного друку)
-    _scannerBloc.add(ResetScanner());
+    // Скидаємо стан, ТІЛЬКИ якщо ми не в процесі завантаження нового штрихкоду
+    if (_scannerBloc.state is! ScannerLoading) {
+      _scannerBloc.add(ResetScanner());
+    }
     super.dispose();
   }
 
@@ -163,137 +165,148 @@ class _QuantityScreenState extends State<QuantityScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[200],
-      appBar: AppBar(
-        title: const Text('Введення кількості'),
-        centerTitle: true,
-        elevation: 0,
-      ),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Row(
-              children: [
-                Expanded(
-                  flex: 6,
-                  child: Container(
-                    padding: const EdgeInsets.all(24.0),
-                    child: Column(
-                      children: [
-                        _buildNumpadRow(['1', '2', '3']),
-                        const SizedBox(height: 16),
-                        _buildNumpadRow(['4', '5', '6']),
-                        const SizedBox(height: 16),
-                        _buildNumpadRow(['7', '8', '9']),
-                        const SizedBox(height: 16),
-                        _buildActionRow(),
-                      ],
+    return BlocListener<ScannerBloc, ScannerState>(
+      listener: (context, state) {
+        // Якщо комірник відсканував щось нове (почалося завантаження),
+        // негайно закриваємо цей екран і повертаємо його на Головний!
+        if (state is ScannerLoading) {
+          context.pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.grey[200],
+        appBar: AppBar(
+          title: const Text('Введення кількості'),
+          centerTitle: true,
+          elevation: 0,
+        ),
+        body: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return Row(
+                children: [
+                  Expanded(
+                    flex: 6,
+                    child: Container(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        children: [
+                          _buildNumpadRow(['1', '2', '3']),
+                          const SizedBox(height: 16),
+                          _buildNumpadRow(['4', '5', '6']),
+                          const SizedBox(height: 16),
+                          _buildNumpadRow(['7', '8', '9']),
+                          const SizedBox(height: 16),
+                          _buildActionRow(),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                const VerticalDivider(
-                  width: 1,
-                  thickness: 1,
-                  color: Colors.black12,
-                ),
-                Expanded(
-                  flex: 4,
-                  child: Container(
-                    color: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32.0,
-                      vertical: 24.0,
-                    ),
-                    child: Column(
-                      children: [
-                        Expanded(
-                          child: SingleChildScrollView(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                const Text(
-                                  'Кількість копій',
-                                  style: TextStyle(
-                                    fontSize: 22,
-                                    color: Colors.black54,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  _quantity,
-                                  style: const TextStyle(
-                                    fontSize: 72,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.blueAccent,
-                                  ),
-                                ),
-                                const Divider(height: 48, thickness: 2),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                    horizontal: 24,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    border: Border.all(
-                                      color: Colors.blueAccent.withValues(
-                                        alpha: 0.5,
-                                      ),
-                                      width: 2,
+                  const VerticalDivider(
+                    width: 1,
+                    thickness: 1,
+                    color: Colors.black12,
+                  ),
+                  Expanded(
+                    flex: 4,
+                    child: Container(
+                      color: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 32.0,
+                        vertical: 24.0,
+                      ),
+                      child: Column(
+                        children: [
+                          Expanded(
+                            child: SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  const Text(
+                                    'Кількість копій',
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      color: Colors.black54,
                                     ),
-                                    borderRadius: BorderRadius.circular(8),
-                                    color: Colors.blue.withValues(alpha: 0.05),
                                   ),
-                                  child: Text(
-                                    '№ ${widget.invoice.number}',
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    _quantity,
                                     style: const TextStyle(
-                                      fontSize: 24,
+                                      fontSize: 72,
                                       fontWeight: FontWeight.bold,
+                                      color: Colors.blueAccent,
                                     ),
                                   ),
+                                  const Divider(height: 48, thickness: 2),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                      horizontal: 24,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: Colors.blueAccent.withValues(
+                                          alpha: 0.5,
+                                        ),
+                                        width: 2,
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                      color: Colors.blue.withValues(
+                                        alpha: 0.05,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      '№ ${widget.invoice.number}',
+                                      style: const TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                ],
+                              ),
+                            ),
+                          ),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 60,
+                            child: OutlinedButton.icon(
+                              icon: const Icon(Icons.list_alt, size: 28),
+                              label: const Text(
+                                'Список товарів',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
                                 ),
-                                const SizedBox(height: 20),
-                              ],
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.blueAccent,
+                                side: const BorderSide(
+                                  color: Colors.blueAccent,
+                                  width: 2,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                              ),
+                              onPressed: () {
+                                context.push(
+                                  '/nomenclature',
+                                  extra: widget.invoice.scannedBarcode,
+                                );
+                              },
                             ),
                           ),
-                        ),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 60,
-                          child: OutlinedButton.icon(
-                            icon: const Icon(Icons.list_alt, size: 28),
-                            label: const Text(
-                              'Список товарів',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.blueAccent,
-                              side: const BorderSide(
-                                color: Colors.blueAccent,
-                                width: 2,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(30),
-                              ),
-                            ),
-                            onPressed: () {
-                              context.push(
-                                '/nomenclature',
-                                extra: widget.invoice.scannedBarcode,
-                              );
-                            },
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
-            );
-          },
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
