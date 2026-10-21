@@ -25,6 +25,24 @@ class _QuantityScreenState extends State<QuantityScreen> {
   String _quantity = '0';
   bool _isFirstTap = true;
 
+  // 1. Змінна для збереження BLoC
+  late final ScannerBloc _scannerBloc;
+
+  @override
+  void initState() {
+    super.initState();
+    // 2. Отримуємо BLoC при ініціалізації екрана
+    _scannerBloc = context.read<ScannerBloc>();
+  }
+
+  @override
+  void dispose() {
+    // 3. ГАРАНТОВАНО очищаємо сканер при будь-якому закритті форми
+    // (натискання кнопки "Назад", свайп, або після успішного друку)
+    _scannerBloc.add(ResetScanner());
+    super.dispose();
+  }
+
   void _onNumberTap(String number) {
     setState(() {
       if (_isFirstTap || _quantity == '0') {
@@ -124,7 +142,7 @@ class _QuantityScreenState extends State<QuantityScreen> {
       if (mounted) {
         if (success) {
           context.pop();
-          context.read<ScannerBloc>().add(ResetScanner());
+          // ResetScanner() тут видалено, бо його тепер гарантовано викличе dispose()
         } else {
           messenger.showSnackBar(
             const SnackBar(
