@@ -12,6 +12,8 @@ import '../bloc/scanner/scanner_state.dart';
 import '../../../core/models/invoice.dart';
 import '../../../core/services/settings_service.dart';
 
+import 'dart:convert'; // Потрібно для utf8, якщо тут залишити String
+
 import 'package:flutter/services.dart';
 
 class MainScreen extends StatefulWidget {
@@ -385,7 +387,7 @@ class _MainScreenState extends State<MainScreen> {
   Future<void> _printCustomLabel({
     required String code,
     required String name,
-    required int copies, // Додано новий обов'язковий параметр
+    required int copies,
   }) async {
     final settingsService = context.read<SettingsService>();
     final printerService = context.read<PrinterService>();
@@ -407,6 +409,9 @@ class _MainScreenState extends State<MainScreen> {
 
     final String safeName = PrinterService.sanitizeForTspl(name);
     final String safeCode = PrinterService.sanitizeForTspl(code);
+
+    // Тут ми поки що залишаємо текстовий формат команд, бо це окремий друк.
+    // Якщо захочете зробити жирним і тут, треба буде адаптувати під List<int>.
     final String tsplCommand =
         """
 SIZE $width mm, $height mm
@@ -419,9 +424,10 @@ BLOCK 10,140,444,160,"3",0,2,2,1,2,1,"$safeName"
 PRINT $copies 
 """;
 
+    // Відправляємо масив байтів (utf8.encode працюватиме, бо ми додали імпорт зверху)
     final success = await printerService.printLabels(
       ipAddress: ipAddress,
-      tsplCommand: tsplCommand,
+      payload: utf8.encode(tsplCommand),
     );
 
     if (mounted) {
@@ -509,20 +515,15 @@ PRINT $copies
   }
 
   Future<void> _checkAppUpdate() async {
-    // Якщо сервіс ще не зареєстрований у Provider, створюємо його напряму
     final apiClient = context.read<ApiClient>();
-
-    // Створюємо сервіс, передаючи йому клієнт
     final updateService = UpdateService(apiClient: apiClient);
 
-    // Перевіряємо у фоні (замініть "android" на те значення type, яке очікує ваша 1С)
     final updateInfo = await updateService.checkForUpdates(type: "android");
 
-    // Якщо є оновлення і екран досі активний
     if (updateInfo != null && mounted) {
       showDialog(
         context: context,
-        barrierDismissible: false, // Забороняємо закривати кліком поза вікном
+        barrierDismissible: false,
         builder: (dialogContext) => AlertDialog(
           title: const Text('Доступне оновлення'),
           content: Text(
@@ -536,9 +537,8 @@ PRINT $copies
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
               onPressed: () {
-                Navigator.pop(dialogContext); // Закриваємо вікно діалогу
+                Navigator.pop(dialogContext);
 
-                // Показуємо повідомлення, що процес пішов
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Завантаження оновлення...'),
@@ -546,9 +546,7 @@ PRINT $copies
                   ),
                 );
 
-                // Починаємо завантаження
                 updateService.downloadAndInstall(updateInfo['url'], (progress) {
-                  // Використовуємо debugPrint замість print
                   debugPrint(
                     'Завантажено: ${(progress * 100).toStringAsFixed(0)}%',
                   );
@@ -567,10 +565,8 @@ PRINT $copies
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        //title: const Text('Складський термінал'),
         centerTitle: true,
         actions: [
-          // Кнопка відкриття правого бічного меню
           Builder(
             builder: (ctx) => IconButton(
               icon: const Icon(Icons.settings),
@@ -582,7 +578,6 @@ PRINT $copies
           ),
         ],
       ),
-      // Праве бічне меню з двома розділами
       endDrawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
@@ -616,7 +611,6 @@ PRINT $copies
                 ],
               ),
             ),
-            // Перше підменю: назва девайсу
             ListTile(
               leading: const Icon(Icons.badge, color: Colors.blueAccent),
               title: const Text('Ідентифікація девайса'),
@@ -625,12 +619,11 @@ PRINT $copies
               ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
-                Navigator.of(context).pop(); // Закриваємо бічне меню
+                Navigator.of(context).pop();
                 _showSettingsDialog();
               },
             ),
             const Divider(),
-            // Друге підменю: кастомний друк (Код, Найменування, Друк)
             ListTile(
               leading: const Icon(
                 Icons.print_outlined,
@@ -640,7 +633,7 @@ PRINT $copies
               subtitle: const Text('Ручний друк за кодом/назвою'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
-                Navigator.of(context).pop(); // Закриваємо бічне меню
+                Navigator.of(context).pop();
                 _showCustomLabelPrintDialog();
               },
             ),
@@ -732,19 +725,15 @@ class IpAddressInputFormatter extends TextInputFormatter {
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    // Якщо користувач стирає текст (Backspace), не заважаємо йому
     if (oldValue.text.length > newValue.text.length) {
       return newValue;
     }
 
     String text = newValue.text;
-    // Залишаємо виключно цифри та крапки
     text = text.replaceAll(RegExp(r'[^0-9.]'), '');
 
-    // Розбиваємо рядок на блоки (октети)
     List<String> blocks = text.split('.');
 
-    // IP-адреса має максимум 4 блоки
     if (blocks.length > 4) {
       blocks = blocks.sublist(0, 4);
     }
@@ -753,7 +742,6 @@ class IpAddressInputFormatter extends TextInputFormatter {
     for (int i = 0; i < blocks.length; i++) {
       String block = blocks[i];
 
-      // Якщо в блоці з'являється 4-та цифра, перекидаємо її в новий блок
       if (block.length > 3) {
         String extra = block.substring(3);
         block = block.substring(0, 3);
@@ -765,17 +753,14 @@ class IpAddressInputFormatter extends TextInputFormatter {
 
       formatted += block;
 
-      // Зберігаємо вже існуючі крапки між блоками
+      // ВИПРАВЛЕНО: додано знак мінуса
       if (i < blocks.length - 1) {
         formatted += '.';
-      }
-      // АВТОМАТИЗАЦІЯ: Якщо введено 3 цифри і це не останній блок — самі ставимо крапку
-      else if (block.length == 3 && i < 3) {
+      } else if (block.length == 3 && i < 3) {
         formatted += '.';
       }
     }
 
-    // Повертаємо відформатований текст і ставимо курсор у самий кінець
     return TextEditingValue(
       text: formatted,
       selection: TextSelection.collapsed(offset: formatted.length),

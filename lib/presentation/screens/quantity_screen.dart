@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +9,8 @@ import '../../core/models/invoice.dart';
 import '../../core/services/printer_service.dart';
 import '../../core/services/settings_service.dart';
 import '../../data/repositories/invoice_repository.dart';
+import '../bloc/scanner/scanner_bloc.dart';
+import '../bloc/scanner/scanner_event.dart';
 
 class QuantityScreen extends StatefulWidget {
   final Invoice invoice;
@@ -18,12 +22,9 @@ class QuantityScreen extends StatefulWidget {
 }
 
 class _QuantityScreenState extends State<QuantityScreen> {
-  // За замовчуванням ставимо 0 копію
   String _quantity = '0';
-  // Прапорець, щоб при першому натисканні цифри одиниця замінювалась, а не ставала "15"
   bool _isFirstTap = true;
 
-  /// Обробка натискання на цифри
   void _onNumberTap(String number) {
     setState(() {
       if (_isFirstTap || _quantity == '0') {
@@ -37,7 +38,6 @@ class _QuantityScreenState extends State<QuantityScreen> {
     });
   }
 
-  /// Очищення поля вводу (кнопка С)
   void _onClear() {
     setState(() {
       _quantity = '0';
@@ -45,7 +45,7 @@ class _QuantityScreenState extends State<QuantityScreen> {
     });
   }
 
-  /// Метод генерації команди TSPL та відправки на принтер (кнопка Друк)
+  /// Метод генерації команди TSPL (як байтів) та відправки на принтер (кнопка Друк)
   Future<void> _printLabels() async {
     final int qty = int.tryParse(_quantity) ?? 0;
     if (qty == 0) return;
@@ -78,43 +78,53 @@ class _QuantityScreenState extends State<QuantityScreen> {
         throw Exception('Сервер не повернув дані для друку');
       }
 
-      StringBuffer tsplBuffer = StringBuffer();
-      tsplBuffer.writeln("");
-      tsplBuffer.writeln("");
-      tsplBuffer.writeln("SIZE $width mm, $height mm");
-      tsplBuffer.writeln("GAP 2 mm, 0 mm");
-      tsplBuffer.writeln("DIRECTION 1");
-      tsplBuffer.writeln("CODEPAGE UTF-8");
+      // Збираємо список байтів замість рядка
+      List<int> payload = [];
 
+      // "Будильник" та налаштування етикетки (обов'язково додаємо \r\n для нових рядків)
+      payload.addAll(utf8.encode('\r\n\r\n'));
+      payload.addAll(utf8.encode('SIZE $width mm, $height mm\r\n'));
+      payload.addAll(utf8.encode('GAP 2 mm, 0 mm\r\n'));
+      payload.addAll(utf8.encode('DIRECTION 1\r\n'));
+      payload.addAll(utf8.encode('CODEPAGE UTF-8\r\n'));
+
+      // Цикл по всіх етикетках з 1С
       for (GeneratedLabel label in serverLabels) {
-        tsplBuffer.writeln("CLS");
+        payload.addAll(utf8.encode('CLS\r\n'));
 
-        // Очищення тексту через статичний метод PrinterService
         final safeTitle = PrinterService.sanitizeForTspl(label.title);
         final safeText = PrinterService.sanitizeForTspl(label.text);
 
-        // 1. TITLE (Зверху)
-        tsplBuffer.writeln('BLOCK 0,10,464,140,"4",0,1,1,10,1,"$safeTitle"');
+        // 1. ЗАГОЛОВОК (Зверху) - Генерується як картинка з жирним шрифтом
+        List<int> titleBitmapBytes = await printerService.generateBoldTitleTspl(
+          safeTitle,
+        );
+        payload.addAll(titleBitmapBytes);
 
-        // 2. BARCODE (Посередині)
-        tsplBuffer.writeln(
-          'BARCODE 80,150,"EAN13",70,0,0,3,3,"${label.barcode}"',
+        // 2. ШТРИХКОД (Посередині)
+        payload.addAll(
+          utf8.encode(
+            'BARCODE 80,150,"EAN13",70,0,0,3,3,"${label.barcode}"\r\n',
+          ),
         );
 
-        // 3. TEXT (Знизу)
-        tsplBuffer.writeln('BLOCK 10,230,444,70,"3",0,1,1,10,1,"$safeText"');
+        // 3. ТЕКСТ (Знизу) - Стандартний шрифт TSPL
+        payload.addAll(
+          utf8.encode('BLOCK 10,230,444,70,"3",0,1,1,10,1,"$safeText"\r\n'),
+        );
 
-        tsplBuffer.writeln("PRINT 1");
+        payload.addAll(utf8.encode('PRINT 1\r\n'));
       }
 
       final success = await printerService.printLabels(
         ipAddress: ipAddress,
-        tsplCommand: tsplBuffer.toString(),
+        payload: payload,
       );
 
       if (mounted) {
         if (success) {
           context.pop();
+          context.read<ScannerBloc>().add(ResetScanner());
         } else {
           messenger.showSnackBar(
             const SnackBar(
@@ -145,10 +155,8 @@ class _QuantityScreenState extends State<QuantityScreen> {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            // Використовуємо Row для планшетної (горизонтальної) орієнтації
             return Row(
               children: [
-                // 1. ЛІВА ЧАСТИНА: Цифровий блок (Numpad) - займає 60% екрана
                 Expanded(
                   flex: 6,
                   child: Container(
@@ -161,20 +169,16 @@ class _QuantityScreenState extends State<QuantityScreen> {
                         const SizedBox(height: 16),
                         _buildNumpadRow(['7', '8', '9']),
                         const SizedBox(height: 16),
-                        _buildActionRow(), // Ряд із кнопками "С", "0", "ДРУК"
+                        _buildActionRow(),
                       ],
                     ),
                   ),
                 ),
-
-                // Вертикальний розділювач
                 const VerticalDivider(
                   width: 1,
                   thickness: 1,
                   color: Colors.black12,
                 ),
-
-                // 2. ПРАВА ЧАСТИНА: Інформаційна панель - займає 40% екрана
                 Expanded(
                   flex: 4,
                   child: Container(
@@ -185,7 +189,6 @@ class _QuantityScreenState extends State<QuantityScreen> {
                     ),
                     child: Column(
                       children: [
-                        // ЗАМІСТЬ Spacer() загортаємо весь контент у Expanded + SingleChildScrollView
                         Expanded(
                           child: SingleChildScrollView(
                             child: Column(
@@ -207,10 +210,7 @@ class _QuantityScreenState extends State<QuantityScreen> {
                                     color: Colors.blueAccent,
                                   ),
                                 ),
-
                                 const Divider(height: 48, thickness: 2),
-
-                                // Блок з номером документа
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 12,
@@ -234,36 +234,11 @@ class _QuantityScreenState extends State<QuantityScreen> {
                                     ),
                                   ),
                                 ),
-
                                 const SizedBox(height: 20),
-
-                                // Кількість місць по базі 1С
-                                // const Text(
-                                //   'Кількість місць',
-                                //   style: TextStyle(
-                                //     fontSize: 20,
-                                //     color: Colors.black54,
-                                //   ),
-                                // ),
-                                // const SizedBox(height: 8),
-                                // Text(
-                                //   '${widget.invoice.placesCount}',
-                                //   style: const TextStyle(
-                                //     fontSize: 32,
-                                //     fontWeight: FontWeight.bold,
-                                //     color: Colors.blue,
-                                //     decoration: TextDecoration.underline,
-                                //   ),
-                                // ),
                               ],
                             ),
                           ),
                         ),
-
-                        // const SizedBox(
-                        //   height: 16,
-                        // ), // Відступ між скролом і кнопкою
-                        // Кнопка "Список товарів" (завжди закріплена внизу)
                         SizedBox(
                           width: double.infinity,
                           height: 60,
@@ -306,7 +281,6 @@ class _QuantityScreenState extends State<QuantityScreen> {
     );
   }
 
-  /// Метод для побудови ряду з трьох звичайних цифр
   Widget _buildNumpadRow(List<String> numbers) {
     return Expanded(
       child: Row(
@@ -317,11 +291,9 @@ class _QuantityScreenState extends State<QuantityScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      Colors.grey[300], // Сірий колір кнопок як на скріні
+                  backgroundColor: Colors.grey[300],
                   foregroundColor: Colors.black87,
                   elevation: 4,
-                  // Овальна форма (StadiumBorder)
                   shape: const StadiumBorder(),
                 ),
                 onPressed: () => _onNumberTap(number),
@@ -340,13 +312,11 @@ class _QuantityScreenState extends State<QuantityScreen> {
     );
   }
 
-  /// Метод для побудови нижнього ряду (Скинути, 0, Друк)
   Widget _buildActionRow() {
     return Expanded(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Кнопка "С" (Червона)
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
@@ -365,7 +335,6 @@ class _QuantityScreenState extends State<QuantityScreen> {
               ),
             ),
           ),
-          // Кнопка "0"
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
@@ -384,7 +353,6 @@ class _QuantityScreenState extends State<QuantityScreen> {
               ),
             ),
           ),
-          // Кнопка "ДРУК" (Зелена)
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
