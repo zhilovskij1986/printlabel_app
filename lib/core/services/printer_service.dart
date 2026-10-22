@@ -45,10 +45,11 @@ class PrinterService {
     } finally {
       if (socket != null) {
         try {
-          await socket.close();
+          // destroy() працює миттєво та розриває TCP з'єднання.
+          // Це безпечніше, ніж чекати на await socket.close() при поганому Wi-Fi.
           socket.destroy();
         } catch (e) {
-          debugPrint('Помилка при закритті сокета: $e');
+          debugPrint('Помилка при знищенні сокета: $e');
         }
       }
     }
@@ -58,7 +59,7 @@ class PrinterService {
   Future<List<int>> generateBoldTitleTspl(String title) async {
     final textStyle = const TextStyle(
       color: Colors.black,
-      fontSize: 34,
+      fontSize: 42,
       fontWeight: FontWeight.bold,
     );
 
@@ -101,12 +102,11 @@ class PrinterService {
         for (int x = 0; x < 464; x++) {
           int offset = (y * 464 + x) * 4;
           int r = byteData.getUint8(offset);
-          int g = byteData.getUint8(offset + 1);
-          int b = byteData.getUint8(offset + 2);
+          // Оскільки ми малюємо ЧОРНИЙ текст на БІЛОМУ фоні,
+          // достатньо перевірити лише канал Red, щоб зрозуміти, чи це фон (255) чи текст (0).
 
-          int brightness = (0.299 * r + 0.587 * g + 0.114 * b).round();
           // Наша інверсія для принтера (білий фон = 1, чорний текст = 0)
-          bool isWhite = brightness >= 128;
+          bool isWhite = r > 127;
 
           if (isWhite) {
             int byteIndex = y * widthBytes + (x ~/ 8);
