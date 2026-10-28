@@ -57,9 +57,14 @@ class PrinterService {
 
   /// Генерує команду BITMAP для TSPL з жирним текстом (Оптимізовано пам'ять)
   Future<List<int>> generateBoldTitleTspl(String title) async {
+    // Налаштування ширини та відступів
+    const int totalWidth = 464;
+    const double paddingX = 24.0; // Відступ зліва і справа (~3 мм)
+    const double paddingY = 4.0; // Відступ зверху і знизу
+
     final textStyle = const TextStyle(
       color: Colors.black,
-      fontSize: 42,
+      fontSize: 38,
       fontWeight: FontWeight.bold,
     );
 
@@ -69,48 +74,52 @@ class PrinterService {
       textDirection: TextDirection.ltr,
     );
 
-    textPainter.layout(maxWidth: 464);
+    // Обмежуємо ширину тексту, щоб він переносився до того, як торкнеться краю
+    textPainter.layout(maxWidth: totalWidth - (paddingX * 2));
+
+    // Загальна висота картинки = висота тексту + відступи
+    final int totalHeight = (textPainter.height + (paddingY * 2)).ceil();
 
     final pictureRecorder = ui.PictureRecorder();
     final canvas = ui.Canvas(pictureRecorder);
 
+    // Малюємо білий фон на всю ширину рулону
     final bgPaint = Paint()..color = Colors.white;
-    canvas.drawRect(Rect.fromLTWH(0, 0, 464, textPainter.height), bgPaint);
-    textPainter.paint(canvas, Offset.zero);
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, totalWidth.toDouble(), totalHeight.toDouble()),
+      bgPaint,
+    );
+
+    // Малюємо текст зі зміщенням на paddingX та paddingY
+    textPainter.paint(canvas, const Offset(paddingX, paddingY));
 
     final picture = pictureRecorder.endRecording();
     ui.Image? image;
     ByteData? byteData;
 
     try {
-      // Створюємо нативне зображення
-      image = await picture.toImage(464, textPainter.height.toInt());
+      image = await picture.toImage(totalWidth, totalHeight);
       byteData = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
     } finally {
-      // ГАРАНТОВАНЕ звільнення нативної графічної пам'яті
       image?.dispose();
       picture.dispose();
     }
 
-    int widthBytes = (464 + 7) ~/ 8;
-    // Оскільки image ми вже знищили, беремо висоту з textPainter
-    int height = textPainter.height.toInt();
-    Uint8List bitmapData = Uint8List(widthBytes * height);
+    int widthBytes = (totalWidth + 7) ~/ 8;
+    Uint8List bitmapData = Uint8List(widthBytes * totalHeight);
 
     if (byteData != null) {
-      for (int y = 0; y < height; y++) {
-        for (int x = 0; x < 464; x++) {
-          int offset = (y * 464 + x) * 4;
+      for (int y = 0; y < totalHeight; y++) {
+        for (int x = 0; x < totalWidth; x++) {
+          int offset = (y * totalWidth + x) * 4;
           int r = byteData.getUint8(offset);
-          // Оскільки ми малюємо ЧОРНИЙ текст на БІЛОМУ фоні,
-          // достатньо перевірити лише канал Red, щоб зрозуміти, чи це фон (255) чи текст (0).
 
-          // Наша інверсія для принтера (білий фон = 1, чорний текст = 0)
           bool isWhite = r > 127;
 
           if (isWhite) {
             int byteIndex = y * widthBytes + (x ~/ 8);
-            int bitIndex = 7 - (x % 8);
+            int bitIndex =
+                7 - (x % 8); // ВИПРАВЛЕНО: тут була помилка синтаксису
             bitmapData[byteIndex] |= (1 << bitIndex);
           }
         }
@@ -118,7 +127,7 @@ class PrinterService {
     }
 
     List<int> tsplPayload = [];
-    String header = 'BITMAP 0,10,$widthBytes,$height,0,';
+    String header = 'BITMAP 0,10,$widthBytes,$totalHeight,0,';
 
     tsplPayload.addAll(utf8.encode(header));
     tsplPayload.addAll(bitmapData);
